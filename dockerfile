@@ -7,12 +7,13 @@ ENV TZ=US/Pacific
 WORKDIR /root/.cache/
 ARG PYTHON_VERSION=2.6.6
 
-RUN apt-get update && apt-get install -y python2 python-tk wget curl build-essential zlib1g-dev libx11-dev tk-dev libssl-dev libffi-dev
+RUN apt-get update && apt-get install -y wget curl build-essential zlib1g-dev libx11-dev tk-dev libssl-dev libffi-dev
 
 # Build python-2.6.6 from source
 RUN curl -O https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
     tar -xvzf Python-${PYTHON_VERSION}.tgz
 # Need to modify Modules/Setup; copy over custom file
+# Installing modules for zlib and tkinter, but SSL module doesn't work
 COPY Setup /root/.cache/Python-${PYTHON_VERSION}/Modules
 WORKDIR  /root/.cache/Python-${PYTHON_VERSION}
 RUN ./configure \
@@ -20,9 +21,6 @@ RUN ./configure \
     --enable-shared \
     --enable-optimizations \
     --enable-ipv6 \
-    --with-zlib=/usr/include \
-    --with-tcltk-includes="-I/usr/include/tk" \
-    --with-tcltk-libs="-L/usr/lib -ltcl8.6 -L/usr/lib -ltk8.6" \
     LDFLAGS=-Wl,-rpath=/opt/python/${PYTHON_VERSION}/lib,--disable-new-dtags,-L=/usr/include \
     CPPFLAGS=-I=/usr/include && \
     make && make altinstall
@@ -37,7 +35,8 @@ ENV PATH="$PATH:/opt/python/${PYTHON_VERSION}/bin"
 
 # Install numpy from source
 RUN wget https://bootstrap.pypa.io/ez_setup.py -O - | python2.6
-COPY numpy-1.11.2 /root/.cache/numpy-1.11.2
+RUN wget https://sourceforge.net/projects/numpy/files/NumPy/1.11.2/numpy-1.11.2.tar.gz/download -O /root/.cache/numpy-1.11.2.tar.gz && \
+    tar -xvzf /root/.cache/numpy-1.11.2.tar.gz --one-top-level=/root/.cache
 WORKDIR /root/.cache/numpy-1.11.2
 # Missing xlocale.h, link from locale.h
 RUN ln -s /usr/include/locale.h /usr/include/xlocale.h && \
@@ -49,6 +48,7 @@ RUN wget https://ocw.mit.edu/courses/6-01sc-introduction-to-electrical-engineeri
     tar -xvzf /root/.cache/lib601-3-500.tar.gz --one-top-level=/root/.cache/
 WORKDIR /root/.cache/lib601-3-500
 RUN python2.6 setup.py install
+RUN echo 'alias python=python2.6' >> ~/.bashrc
 
 WORKDIR /root
 CMD ["bash"]
